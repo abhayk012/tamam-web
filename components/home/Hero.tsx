@@ -1,193 +1,494 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
 
-// Register ScrollTrigger plugin with GSAP
 gsap.registerPlugin(ScrollTrigger);
 
-const TOTAL_FRAMES = 60;
+const TOTAL_FRAMES = 240;
 
-/**
- * Generates the frame file URL based on 1-based index.
- * Adjust format/padding string pattern below if needed (e.g. `frame_${String(index).padStart(3, '0')}.png`).
- */
-const getFrameUrl = (index: number): string => {
-  // Adjust this comment/code depending on your file naming scheme:
-  // Option A (Padded 3-digit): `/heroframeslap/frame_${String(index).padStart(3, "0")}.png`
-  // Option B (Simple integer): `/heroframeslap/${index}.png`
-  const paddedIndex = String(index).padStart(3, "0");
-  return `/heroframeslap/frame_${paddedIndex}.png`;
+// Increase/decrease this to control how long the cinematic sequence takes.
+// 6 = approximately 6 viewport heights of scrolling.
+const SCROLL_DISTANCE = 6;
+
+const getFramePath = (frameNumber: number): string => {
+  const paddedIndex = String(frameNumber).padStart(3, "0");
+
+  return `/heroframeslap/ezgif-frame-${paddedIndex}.jpg`;
 };
 
 export default function Hero() {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  const [images, setImages] = useState<HTMLImageElement[]>([]);
-  const [loadingProgress, setLoadingProgress] = useState<number>(0);
-  const [isLoaded, setIsLoaded] = useState<boolean>(false);
+  const imagesRef = useRef<HTMLImageElement[]>([]);
+  const currentFrameRef = useRef(0);
+  const lastRenderedFrameRef = useRef(-1);
 
-  // Helper function to render a given image onto canvas using object-fit: cover math
-  const renderFrame = (img: HTMLImageElement) => {
+  const rafRef = useRef<number | null>(null);
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadProgress, setLoadProgress] = useState(0);
+
+  /**
+   * Render image with object-fit: cover behavior.
+   *
+   * Canvas itself is rendered at full device-pixel resolution,
+   * so high-resolution source images remain sharp.
+   */
+  const renderFrame = useCallback((frameIndex: number) => {
     const canvas = canvasRef.current;
-    if (!canvas || !img) return;
 
-    const ctx = canvas.getContext("2d");
+    if (!canvas) return;
+
+    const ctx = canvas.getContext("2d", {
+      alpha: false,
+      desynchronized: true,
+    });
+
     if (!ctx) return;
+
+    const safeFrameIndex = Math.max(
+      0,
+      Math.min(TOTAL_FRAMES - 1, Math.round(frameIndex))
+    );
+
+    // Don't redraw the exact same frame unnecessarily.
+    if (safeFrameIndex === lastRenderedFrameRef.current) {
+      return;
+    }
+
+    const image = imagesRef.current[safeFrameIndex];
+
+    if (
+      !image ||
+      !image.complete ||
+      image.naturalWidth === 0 ||
+      image.naturalHeight === 0
+    ) {
+      return;
+    }
 
     const canvasWidth = canvas.width;
     const canvasHeight = canvas.height;
 
-    const imgWidth = img.naturalWidth || img.width;
-    const imgHeight = img.naturalHeight || img.height;
+    if (!canvasWidth || !canvasHeight) return;
 
-    if (!imgWidth || !imgHeight) return;
-
-    // Calculate aspect ratios for object-fit: cover behavior
+    const imageRatio = image.naturalWidth / image.naturalHeight;
     const canvasRatio = canvasWidth / canvasHeight;
-    const imgRatio = imgWidth / imgHeight;
 
     let drawWidth = canvasWidth;
     let drawHeight = canvasHeight;
     let offsetX = 0;
     let offsetY = 0;
 
-    if (imgRatio > canvasRatio) {
-      // Image is wider than canvas
-      drawWidth = canvasHeight * imgRatio;
-      offsetX = (canvasWidth - drawWidth) / 2;
-    } else {
-      // Image is taller than canvas
-      drawHeight = canvasWidth / imgRatio;
+    if (canvasRatio > imageRatio) {
+      // Canvas is proportionally wider than image.
+      drawWidth = canvasWidth;
+      drawHeight = canvasWidth / imageRatio;
+
+      offsetX = 0;
       offsetY = (canvasHeight - drawHeight) / 2;
+    } else {
+      // Canvas is proportionally taller than image.
+      drawHeight = canvasHeight;
+      drawWidth = canvasHeight * imageRatio;
+
+      offsetX = (canvasWidth - drawWidth) / 2;
+      offsetY = 0;
     }
+
+    // Best possible browser scaling quality.
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
 
     ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-    ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
-  };
 
-  // Preload frames effect
-  useEffect(() => {
-    let isMounted = true;
-    const loadedImages: HTMLImageElement[] = [];
-    let loadedCount = 0;
+    ctx.drawImage(
+      image,
+      offsetX,
+      offsetY,
+      drawWidth,
+      drawHeight
+    );
 
-    for (let i = 1; i <= TOTAL_FRAMES; i++) {
-      const img = new Image();
-      img.src = getFrameUrl(i);
-
-      const onImageLoad = () => {
-        if (!isMounted) return;
-        loadedCount++;
-        setLoadingProgress(Math.floor((loadedCount / TOTAL_FRAMES) * 100));
-
-        if (loadedCount === TOTAL_FRAMES) {
-          setImages(loadedImages);
-          setIsLoaded(true);
-        }
-      };
-
-      img.onload = onImageLoad;
-      img.onerror = onImageLoad; // Continue progress even if an image fails
-
-      loadedImages.push(img);
-    }
-
-    return () => {
-      isMounted = false;
-    };
+    lastRenderedFrameRef.current = safeFrameIndex;
   }, []);
 
-  // Window resize handler to update canvas internal dimensions & re-render frame
-  useEffect(() => {
-    const handleResize = () => {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
+  /**
+   * Rendering through requestAnimationFrame prevents excessive
+   * canvas draws during very fast scroll updates.
+   */
+  const requestFrameRender = useCallback(
+    (frameIndex: number) => {
+      currentFrameRef.current = frameIndex;
 
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-
-      // Re-render current active image frame if images are ready
-      if (images.length > 0) {
-        // Render first frame as fallback on resize if needed
-        renderFrame(images[0]);
+      if (rafRef.current !== null) {
+        return;
       }
+
+      rafRef.current = requestAnimationFrame(() => {
+        renderFrame(currentFrameRef.current);
+
+        rafRef.current = null;
+      });
+    },
+    [renderFrame]
+  );
+
+  /**
+   * Correctly size canvas using browser devicePixelRatio.
+   *
+   * Example:
+   * 1920x1080 screen with DPR 2
+   * Canvas internally becomes 3840x2160.
+   *
+   * CSS still displays it at 1920x1080.
+   */
+  const resizeCanvas = useCallback(() => {
+    const canvas = canvasRef.current;
+
+    if (!canvas) return;
+
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    // Full device pixel ratio — no artificial quality cap.
+    const dpr = window.devicePixelRatio || 1;
+
+    const targetWidth = Math.round(width * dpr);
+    const targetHeight = Math.round(height * dpr);
+
+    if (
+      canvas.width !== targetWidth ||
+      canvas.height !== targetHeight
+    ) {
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+
+      // Force redraw after resize.
+      lastRenderedFrameRef.current = -1;
+
+      renderFrame(currentFrameRef.current);
+    }
+  }, [renderFrame]);
+
+  /**
+   * Preload every frame.
+   */
+  useEffect(() => {
+    let cancelled = false;
+    let loadedCount = 0;
+
+    const images: HTMLImageElement[] = new Array(TOTAL_FRAMES);
+
+    const loadImage = async (index: number) => {
+      return new Promise<void>((resolve) => {
+        const image = new Image();
+
+        const frameNumber = index + 1;
+
+        image.src = getFramePath(frameNumber);
+
+        image.onload = async () => {
+          try {
+            // Wait until browser has decoded the JPEG.
+            if ("decode" in image) {
+              await image.decode().catch(() => {});
+            }
+          } finally {
+            resolve();
+          }
+        };
+
+        image.onerror = () => {
+          console.error(
+            `Failed loading frame ${frameNumber}:`,
+            getFramePath(frameNumber)
+          );
+
+          resolve();
+        };
+
+        images[index] = image;
+      });
     };
 
-    handleResize();
-    window.addEventListener("resize", handleResize);
+    const preloadFrames = async () => {
+      /**
+       * We load in batches instead of starting 240 network
+       * requests simultaneously.
+       *
+       * This generally improves stability and startup performance.
+       */
+      const batchSize = 12;
+
+      for (
+        let batchStart = 0;
+        batchStart < TOTAL_FRAMES;
+        batchStart += batchSize
+      ) {
+        if (cancelled) return;
+
+        const batchPromises: Promise<void>[] = [];
+
+        const batchEnd = Math.min(
+          batchStart + batchSize,
+          TOTAL_FRAMES
+        );
+
+        for (let i = batchStart; i < batchEnd; i++) {
+          batchPromises.push(
+            loadImage(i).then(() => {
+              loadedCount += 1;
+
+              if (!cancelled) {
+                setLoadProgress(
+                  Math.round(
+                    (loadedCount / TOTAL_FRAMES) * 100
+                  )
+                );
+              }
+            })
+          );
+        }
+
+        await Promise.all(batchPromises);
+      }
+
+      if (cancelled) return;
+
+      imagesRef.current = images;
+
+      setLoadProgress(100);
+      setIsLoading(false);
+
+      requestAnimationFrame(() => {
+        resizeCanvas();
+        renderFrame(0);
+      });
+    };
+
+    preloadFrames();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [renderFrame, resizeCanvas]);
+
+  /**
+   * Canvas resizing.
+   */
+  useEffect(() => {
+    resizeCanvas();
+
+    let resizeRaf: number | null = null;
+
+    const handleResize = () => {
+      if (resizeRaf !== null) {
+        cancelAnimationFrame(resizeRaf);
+      }
+
+      resizeRaf = requestAnimationFrame(() => {
+        resizeCanvas();
+
+        ScrollTrigger.refresh();
+
+        resizeRaf = null;
+      });
+    };
+
+    window.addEventListener("resize", handleResize, {
+      passive: true,
+    });
 
     return () => {
       window.removeEventListener("resize", handleResize);
+
+      if (resizeRaf !== null) {
+        cancelAnimationFrame(resizeRaf);
+      }
     };
-  }, [images]);
+  }, [resizeCanvas]);
 
-  // Initial draw once loaded
-  useEffect(() => {
-    if (isLoaded && images.length > 0) {
-      renderFrame(images[0]);
-    }
-  }, [isLoaded, images]);
-
-  // GSAP ScrollTrigger timeline setup using @gsap/react
+  /**
+   * GSAP ScrollTrigger.
+   */
   useGSAP(
     () => {
-      if (!isLoaded || images.length === 0) return;
+      if (isLoading) return;
+      if (!containerRef.current) return;
 
-      const frameObj = { currentFrame: 0 };
+      /**
+       * Instead of animating an object with a timeline,
+       * calculate the exact frame directly from ScrollTrigger progress.
+       *
+       * progress:
+       * 0.0 = frame 1
+       * 0.5 = frame 120
+       * 1.0 = frame 240
+       */
+      const trigger = ScrollTrigger.create({
+        trigger: containerRef.current,
 
-      gsap.to(frameObj, {
-        currentFrame: TOTAL_FRAMES - 1,
-        snap: "currentFrame",
-        ease: "none",
-        scrollTrigger: {
-          trigger: containerRef.current,
-          start: "top top",
-          end: "+=300%",
-          pin: true,
-          scrub: 1.5,
+        start: "top top",
+
+        end: () =>
+          `+=${window.innerHeight * SCROLL_DISTANCE}`,
+
+        pin: true,
+
+        // Slight smoothing while still feeling connected to scroll.
+        scrub: 0.65,
+
+        anticipatePin: 1,
+
+        invalidateOnRefresh: true,
+
+        onUpdate: (self) => {
+          const progress = self.progress;
+
+          const frameIndex = Math.min(
+            TOTAL_FRAMES - 1,
+            Math.floor(
+              progress * TOTAL_FRAMES
+            )
+          );
+
+          requestFrameRender(frameIndex);
         },
-        onUpdate: () => {
-          const frameIndex = Math.round(frameObj.currentFrame);
-          if (images[frameIndex]) {
-            renderFrame(images[frameIndex]);
-          }
+
+        onEnter: () => {
+          requestFrameRender(0);
+        },
+
+        onLeave: () => {
+          // Guarantee final image is displayed.
+          requestFrameRender(TOTAL_FRAMES - 1);
+        },
+
+        onEnterBack: (self) => {
+          const frameIndex = Math.min(
+            TOTAL_FRAMES - 1,
+            Math.floor(
+              self.progress * TOTAL_FRAMES
+            )
+          );
+
+          requestFrameRender(frameIndex);
+        },
+
+        onLeaveBack: () => {
+          requestFrameRender(0);
         },
       });
+
+      // Ensure canvas starts with frame 1.
+      requestFrameRender(0);
+
+      ScrollTrigger.refresh();
+
+      return () => {
+        trigger.kill();
+
+        if (rafRef.current !== null) {
+          cancelAnimationFrame(rafRef.current);
+          rafRef.current = null;
+        }
+      };
     },
-    { dependencies: [isLoaded, images], scope: containerRef }
+    {
+      scope: containerRef,
+      dependencies: [
+        isLoading,
+        requestFrameRender,
+      ],
+    }
   );
 
   return (
-    <div
+    <section
       ref={containerRef}
-      className="relative w-full h-screen bg-black overflow-hidden select-none"
+      className="relative h-screen w-full overflow-hidden bg-black"
     >
-      {/* Loading Overlay */}
-      {!isLoaded && (
-        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black text-white">
-          <div className="w-12 h-12 border-4 border-white/20 border-t-white rounded-full animate-spin mb-4" />
-          <p className="text-sm font-medium tracking-widest uppercase">
-            Loading {loadingProgress}%
-          </p>
+      {/* FRAME CANVAS */}
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0 h-full w-full"
+        aria-hidden="true"
+      />
+
+      {/* OPTIONAL CINEMATIC OVERLAY */}
+      <div
+        className="
+          pointer-events-none
+          absolute
+          inset-0
+          z-10
+          bg-gradient-to-b
+          from-black/10
+          via-transparent
+          to-black/20
+        "
+      />
+
+      {/* LOADER */}
+      {isLoading && (
+        <div
+          className="
+            absolute
+            inset-0
+            z-50
+            flex
+            items-center
+            justify-center
+            bg-black
+          "
+        >
+          <div className="flex flex-col items-center">
+            <div
+              className="
+                mb-6
+                h-10
+                w-10
+                animate-spin
+                rounded-full
+                border-2
+                border-white/20
+                border-t-white
+              "
+            />
+
+            <p className="text-[11px] font-medium uppercase tracking-[0.35em] text-white/80">
+              Loading Experience
+            </p>
+
+            <p className="mt-3 text-xs tabular-nums text-white/40">
+              {loadProgress}%
+            </p>
+
+            {/* PROGRESS LINE */}
+            <div className="mt-5 h-px w-40 overflow-hidden bg-white/10">
+              <div
+                className="h-full bg-white transition-[width] duration-200"
+                style={{
+                  width: `${loadProgress}%`,
+                }}
+              />
+            </div>
+          </div>
         </div>
       )}
-
-      {/* Frame Canvas */}
-      <canvas ref={canvasRef} className="absolute inset-0 w-full h-full block" />
-
-      {/* Hero Content Overlay */}
-      <div className="absolute inset-0 z-10 flex flex-col items-center justify-center text-center px-4 pointer-events-none">
-        <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-white tracking-tight drop-shadow-lg">
-          Experience Next Generation
-        </h1>
-        <p className="mt-4 text-lg md:text-xl text-gray-300 max-w-2xl drop-shadow-md">
-          Scroll down to explore the seamless frame sequence animation.
-        </p>
-      </div>
-    </div>
+    </section>
   );
 }
