@@ -1,3 +1,5 @@
+import Navbar from "@/components/Navbar";
+import CustomCursor from "@/components/CustomCursor";
 import Hero from "@/components/home/Hero";
 import EventManagement from "@/components/home/EventManagement";
 import Experience from "@/components/home/Experience";
@@ -7,10 +9,13 @@ import OurActivities from "@/components/home/OurActivities";
 import AudioVisualServices from "@/components/home/AudioVisualServices";
 import OurClients from "@/components/home/OurClients";
 import ContactUs from "@/components/home/ContactUs";
+import Footer from "@/components/Footer";
 
 export default function Home() {
   return (
-    <main className="w-full bg-background text-foreground font-montserrat overflow-hidden">
+    <main className="w-full bg-background text-foreground font-montserrat overflow-hidden relative selection:bg-primary selection:text-black">
+      <Navbar />
+      <CustomCursor />
       <Hero />
       <EventManagement />
       <Experience />
@@ -20,7 +25,7 @@ export default function Home() {
       <AudioVisualServices />
       <OurClients />
       <ContactUs />
+      <Footer />
     </main>
   );
 }
-

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useRef } from "react";
+import Image from "next/image";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
@@ -9,95 +10,126 @@ gsap.registerPlugin(ScrollTrigger);
 
 export default function EventManagement() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const tagRef = useRef<HTMLParagraphElement>(null);
-  const headingRef = useRef<HTMLHeadingElement>(null);
-  const subheadingRef = useRef<HTMLParagraphElement>(null);
-  const col1Ref = useRef<HTMLDivElement>(null);
-  const col2Ref = useRef<HTMLDivElement>(null);
+  const textRef = useRef<HTMLDivElement>(null);
+  const imageRef = useRef<HTMLDivElement>(null);
 
   useGSAP(
     () => {
-      const tl = gsap.timeline({
+      if (!containerRef.current) return;
+
+      gsap.from(textRef.current, {
+        y: 40,
+        opacity: 0,
+        duration: 0.9,
+        ease: "power3.out",
         scrollTrigger: {
           trigger: containerRef.current,
-          start: "top 80%",
-          end: "top 30%",
-          scrub: 1.2,
+          start: "top 75%",
         },
       });
 
-      tl.from(tagRef.current, { opacity: 0, y: 20, duration: 0.5 })
-        .from(headingRef.current, { opacity: 0, y: 40, duration: 0.8 }, "-=0.3")
-        .from(subheadingRef.current, { opacity: 0, y: 30, duration: 0.6 }, "-=0.4")
-        .from([col1Ref.current, col2Ref.current], {
+      if (imageRef.current) {
+        gsap.from(imageRef.current, {
+          scale: 0.96,
           opacity: 0,
-          y: 40,
-          stagger: 0.3,
-          duration: 0.8,
-        }, "-=0.3");
+          duration: 1,
+          ease: "power2.out",
+          scrollTrigger: {
+            trigger: containerRef.current,
+            start: "top 70%",
+          },
+        });
+      }
     },
     { scope: containerRef }
   );
 
   return (
     <section
+      id="event-management"
       ref={containerRef}
-      className="relative w-full min-h-[90vh] py-24 px-6 md:px-16 lg:px-24 bg-surface text-foreground flex flex-col justify-center border-b border-black/5 overflow-hidden"
+      className="relative w-full py-28 md:py-36 px-6 md:px-16 lg:px-24 bg-background text-foreground border-b border-white/10 overflow-hidden"
     >
-      {/* Background Watermark / Accent Text */}
-      <div className="absolute top-10 right-10 text-8xl md:text-[14rem] font-black text-black/[0.02] select-none pointer-events-none tracking-tighter">
-        tamam
+      {/* Background Watermark */}
+      <div className="absolute top-10 right-10 text-[14vw] font-black text-white/[0.015] select-none pointer-events-none tracking-tighter leading-none">
+        TAMAM
       </div>
 
       <div className="max-w-7xl mx-auto w-full relative z-10">
-        <div className="flex flex-col md:flex-row md:items-start justify-between mb-8 gap-4">
-          <div>
-            <p
-              ref={tagRef}
-              className="text-xs md:text-sm font-semibold tracking-widest text-muted-text uppercase mb-2"
-            >
-              WE ADD flair! TO YOUR EVENTS
+        {/* TOP METADATA BAR */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+          <div className="flex items-center gap-3">
+            <span className="w-6 h-px bg-primary" />
+            <p className="text-xs md:text-sm font-bold tracking-[0.3em] uppercase text-primary">
+              WE ADD <span className="italic text-accent">flair!</span> TO YOUR EVENTS
             </p>
-            <h2
-              ref={headingRef}
-              className="text-4xl md:text-6xl lg:text-7xl font-extrabold text-foreground tracking-tight"
-            >
-              Event Management
-            </h2>
           </div>
-          <div className="self-end md:self-auto">
-            <span className="text-xs tracking-widest text-primary uppercase font-bold border-l-2 border-primary pl-3 py-1">
-              TAMAM events
-            </span>
+          <span className="text-[11px] tracking-[0.25em] text-white/40 uppercase font-semibold border-l border-white/20 pl-3">
+            TAMAM events
+          </span>
+        </div>
+
+        {/* HEADINGS */}
+        <div ref={textRef} className="space-y-6 mb-16">
+          <h2 className="text-display-section font-extrabold uppercase tracking-tight text-white">
+            Event <span className="italic font-light text-white/70">Management</span>
+          </h2>
+
+          <p className="text-xl md:text-3xl font-bold text-primary max-w-4xl tracking-tight leading-snug">
+            A name to rely on when you require an experienced team
+          </p>
+        </div>
+
+        {/* 2-COLUMN EDITORIAL CONTENT GRID */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start mb-16">
+          <div className="lg:col-span-6 p-8 md:p-10 rounded-3xl bg-surface border border-white/10 flex flex-col justify-between hover:border-primary/40 transition-colors">
+            <div>
+              <span className="text-xs font-mono font-bold text-accent uppercase tracking-widest block mb-4">
+                01 // Core Business
+              </span>
+              <h3 className="text-lg md:text-xl font-bold text-white mb-4">
+                Event Management is our core business:
+              </h3>
+              <p className="text-muted-text text-base md:text-lg leading-relaxed font-normal">
+                Be it facilitation of trained manpower in the food and beverages department or managing an entire event, we have the manpower and experience to cater to your every need.
+              </p>
+            </div>
+          </div>
+
+          <div className="lg:col-span-6 p-8 md:p-10 rounded-3xl bg-surface border border-white/10 flex flex-col justify-between hover:border-primary/40 transition-colors">
+            <div>
+              <span className="text-xs font-mono font-bold text-accent uppercase tracking-widest block mb-4">
+                02 // In-House Expertise
+              </span>
+              <h3 className="text-lg md:text-xl font-bold text-white mb-4">
+                Experienced In-House Team:
+              </h3>
+              <p className="text-muted-text text-base md:text-lg leading-relaxed font-normal">
+                We have an experienced in-house team to manage any event you might be planning, be it a small gathering on your lawn or a business meeting – we can manage your event with our experienced staff in the food and beverages department or with our technical staff in organizing a flawless meeting.
+              </p>
+            </div>
           </div>
         </div>
 
-        <p
-          ref={subheadingRef}
-          className="text-xl md:text-3xl font-bold text-primary mb-12 max-w-3xl"
+        {/* EDITORIAL IMAGE BANNER */}
+        <div
+          ref={imageRef}
+          className="relative w-full h-[320px] md:h-[480px] rounded-3xl overflow-hidden border border-white/10"
         >
-          A name to rely on when you require an experienced team
-        </p>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-16 text-muted-text text-base md:text-lg leading-relaxed font-medium">
-          <div
-            ref={col1Ref}
-            className="p-8 rounded-2xl bg-white border border-black/5 shadow-sm hover:shadow-md transition-shadow"
-          >
-            <p>
-              Event Management is our core business:
-              <br />
-              Be it facilitation of trained manpower in the food and beverages department or managing an entire event, we have the manpower and experience to cater to your every need.
-            </p>
-          </div>
-
-          <div
-            ref={col2Ref}
-            className="p-8 rounded-2xl bg-white border border-black/5 shadow-sm hover:shadow-md transition-shadow"
-          >
-            <p>
-              We have an experienced in-house team to manage any event you might be planning, be it a small gathering on your lawn or a business meeting – we can mange your event with our experienced staff in the food and beverages department or with our technical staff in organizing a flawless meeting.
-            </p>
+          <Image
+            src="/images/luxury-stage.jpg"
+            alt="Event Management Dubai Stage"
+            fill
+            className="object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+          <div className="absolute bottom-8 left-8 right-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+            <span className="text-xs font-mono uppercase tracking-widest text-white/70">
+              Dubai &amp; Abu Dhabi Event Operations
+            </span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-accent">
+              Flawless Execution
+            </span>
           </div>
         </div>
       </div>

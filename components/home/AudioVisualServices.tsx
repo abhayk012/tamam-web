@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useRef } from "react";
+import Image from "next/image";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
@@ -9,25 +10,21 @@ gsap.registerPlugin(ScrollTrigger);
 
 export default function AudioVisualServices() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const card1Ref = useRef<HTMLDivElement>(null);
-  const card2Ref = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   useGSAP(
     () => {
-      const tl = gsap.timeline({
+      if (!containerRef.current || !contentRef.current) return;
+
+      gsap.from(contentRef.current, {
+        opacity: 0,
+        y: 40,
+        duration: 0.9,
+        ease: "power3.out",
         scrollTrigger: {
           trigger: containerRef.current,
-          start: "top 80%",
-          end: "top 30%",
-          scrub: 1.2,
+          start: "top 75%",
         },
-      });
-
-      tl.from([card1Ref.current, card2Ref.current], {
-        opacity: 0,
-        y: 50,
-        stagger: 0.3,
-        duration: 0.8,
       });
     },
     { scope: containerRef }
@@ -35,44 +32,73 @@ export default function AudioVisualServices() {
 
   return (
     <section
+      id="services"
       ref={containerRef}
-      className="relative w-full py-24 px-6 md:px-16 lg:px-24 bg-white text-foreground flex flex-col justify-center border-b border-black/5 overflow-hidden"
+      className="relative w-full py-28 md:py-36 px-6 md:px-16 lg:px-24 bg-surface text-foreground border-b border-white/10 overflow-hidden"
     >
-      <div className="max-w-7xl mx-auto w-full relative z-10 grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12">
-        {/* Audio equipment Block */}
-        <div
-          ref={card1Ref}
-          className="p-8 md:p-12 rounded-3xl bg-surface border border-black/5 shadow-sm flex flex-col justify-between"
-        >
-          <div>
-            <span className="text-xs tracking-widest text-primary uppercase font-bold border-l-2 border-primary pl-3 py-1 mb-4 block">
-              TAMAM events
-            </span>
-            <h2 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-foreground tracking-tight mb-6">
-              Audio equipment
-            </h2>
+      <div className="max-w-7xl mx-auto w-full relative z-10">
+        {/* TOP BAR */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+          <div className="flex items-center gap-3">
+            <span className="w-6 h-px bg-primary" />
+            <p className="text-xs md:text-sm font-bold tracking-[0.3em] uppercase text-primary">
+              WE ADD <span className="italic text-accent">flair!</span> TO YOUR EVENTS
+            </p>
           </div>
-          <p className="text-base md:text-lg text-muted-text leading-relaxed font-medium">
-            We have a very experienced A-V team on board to cater to any requirement, be it for a Ballroom function or an outdoor event with a DJ or live band.
-          </p>
+          <span className="text-[11px] tracking-[0.25em] text-white/40 uppercase font-semibold border-l border-white/20 pl-3">
+            TAMAM events
+          </span>
         </div>
 
-        {/* Visual effects Block */}
-        <div
-          ref={card2Ref}
-          className="p-8 md:p-12 rounded-3xl bg-surface border border-black/5 shadow-sm flex flex-col justify-between"
-        >
-          <div>
-            <p className="text-xs md:text-sm font-semibold tracking-widest text-muted-text uppercase mb-4">
-              WE ADD flair! TO YOUR EVENTS
-            </p>
-            <h2 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-foreground tracking-tight mb-6">
-              Visual effects
-            </h2>
+        {/* 2 EDITORIAL PANELS MATCHING PAGE 7 */}
+        <div ref={contentRef} className="space-y-12">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-stretch">
+            {/* PANEL 1: AUDIO EQUIPMENT */}
+            <div className="p-8 md:p-12 rounded-3xl bg-background border border-white/10 flex flex-col justify-between hover:border-primary/40 transition-colors">
+              <div>
+                <span className="text-xs font-mono font-bold text-accent uppercase tracking-widest block mb-4">
+                  01 // Sound &amp; Acoustics
+                </span>
+                <h3 className="text-3xl md:text-5xl font-extrabold uppercase text-white tracking-tight mb-6">
+                  Audio equipment
+                </h3>
+                <p className="text-muted-text text-base md:text-lg leading-relaxed font-normal">
+                  We have a very experienced A-V team on board to cater to any requirement, be it for a Ballroom function or an outdoor event with a DJ or live band.
+                </p>
+              </div>
+            </div>
+
+            {/* PANEL 2: VISUAL EFFECTS */}
+            <div className="p-8 md:p-12 rounded-3xl bg-background border border-white/10 flex flex-col justify-between hover:border-primary/40 transition-colors">
+              <div>
+                <span className="text-xs font-mono font-bold text-accent uppercase tracking-widest block mb-4">
+                  02 // Screens &amp; Displays
+                </span>
+                <h3 className="text-3xl md:text-5xl font-extrabold uppercase text-white tracking-tight mb-6">
+                  Visual effects
+                </h3>
+                <p className="text-muted-text text-base md:text-lg leading-relaxed font-normal">
+                  LED walls, multiple projectors ….. we have well trained staff with a wealth of experience in these fields.
+                </p>
+              </div>
+            </div>
           </div>
-          <p className="text-base md:text-lg text-muted-text leading-relaxed font-medium">
-            LED walls, multiple projectors ….. we have well trained staff with a wealth of experience in these feilds.
-          </p>
+
+          {/* AV PRODUCTION VISUAL */}
+          <div className="relative w-full h-[320px] md:h-[460px] rounded-3xl overflow-hidden border border-white/10">
+            <Image
+              src="/images/av-production.jpg"
+              alt="Audio Visual Engineering and LED Lighting"
+              fill
+              className="object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+            <div className="absolute bottom-8 left-8 right-8">
+              <span className="text-xs font-mono uppercase tracking-widest text-white/70">
+                A-V Production, LED Screens &amp; Live Lighting
+              </span>
+            </div>
+          </div>
         </div>
       </div>
     </section>
